@@ -1,0 +1,23 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install ML dependencies
+        run: |
+          sudo apt-get install -y libgomp1
+          pip install numpy==2.5.3 pandas==3.0.5 scipy==1.18.1 matplotlib pytest
+          pip install -r requirements-models.txt
+      - name: Run tests
+        # Tests that need the Kaggle CSVs are skipped automatically in CI
+        run: python -m pytest -q -rs

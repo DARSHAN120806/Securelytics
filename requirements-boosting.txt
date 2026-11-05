@@ -1,0 +1,5 @@
+# The three extra model libraries (installed one by one in the Docker image,
+# so a missing wheel for one library does not break the others)
+xgboost>=2.1
+lightgbm>=4.5
+catboost>=1.2.7

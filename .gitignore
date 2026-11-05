@@ -1,0 +1,38 @@
+# --- data (download from Kaggle, see data/raw/README.md) ---
+data/raw/*
+!data/raw/README.md
+data/processed/
+*.csv
+*.pkl
+*.zip
+
+# --- derived artefacts that contain card numbers / regenerate with the trainer ---
+models/card_state_snapshot.json
+
+# --- legacy files from v1 ---
+models/fraud_model.joblib
+reports/metrics.json
+reports/pr_curve.png
+reports/feature_importance.png
+reports/score_distribution.png
+
+# --- secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+kaggle.json
+
+# --- python / tooling ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.log
+.DS_Store
+Thumbs.db

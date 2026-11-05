@@ -1,0 +1,81 @@
+{
+  "train": {
+    "raw_shape": [
+      1296675,
+      23
+    ],
+    "raw_null_counts": {},
+    "cleaning": {
+      "rows_in": 1296675,
+      "rows_out": 1296675,
+      "rows_dropped": 0,
+      "dropped_by_reason": {},
+      "notes": [
+        "dropped columns: ['Unnamed: 0', 'first', 'last', 'street', 'city', 'state', 'zip', 'job', 'unix_time']",
+        "amount outliers kept on purpose: 1297 rows above p99.9 (1499.25); handled with log-scaling and per-card ratios instead of deletion"
+      ]
+    },
+    "profile": {
+      "rows": 1296675,
+      "cards": 983,
+      "merchants": 693,
+      "fraud_count": 7506,
+      "fraud_rate": 0.005789,
+      "period": [
+        "2019-01-01T00:00:18",
+        "2020-06-21T12:13:37"
+      ],
+      "amount": {
+        "count": 1296675.0,
+        "mean": 70.35,
+        "std": 160.32,
+        "min": 1.0,
+        "25%": 9.65,
+        "50%": 47.52,
+        "75%": 83.14,
+        "max": 28948.9
+      }
+    }
+  },
+  "test": {
+    "raw_shape": [
+      555719,
+      23
+    ],
+    "raw_null_counts": {},
+    "cleaning": {
+      "rows_in": 555719,
+      "rows_out": 555719,
+      "rows_dropped": 0,
+      "dropped_by_reason": {},
+      "notes": [
+        "dropped columns: ['Unnamed: 0', 'first', 'last', 'street', 'city', 'state', 'zip', 'job', 'unix_time']",
+        "amount outliers kept on purpose: 556 rows above p99.9 (1572.72); handled with log-scaling and per-card ratios instead of deletion"
+      ]
+    },
+    "profile": {
+      "rows": 555719,
+      "cards": 924,
+      "merchants": 693,
+      "fraud_count": 2145,
+      "fraud_rate": 0.00386,
+      "period": [
+        "2020-06-21T12:14:25",
+        "2020-12-31T23:59:34"
+      ],
+      "amount": {
+        "count": 555719.0,
+        "mean": 69.39,
+        "std": 156.75,
+        "min": 1.0,
+        "25%": 9.63,
+        "50%": 47.29,
+        "75%": 83.01,
+        "max": 22768.11
+      }
+    }
+  },
+  "train_test_trans_id_overlap": 0,
+  "test_cards_unseen_in_train": 16,
+  "time_split_ok": true
+}

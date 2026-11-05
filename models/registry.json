@@ -1,0 +1,122 @@
+{
+  "default": "xgboost",
+  "models": {
+    "hist_gb": {
+      "label": "HistGradientBoosting (scikit-learn)",
+      "file": "hist_gb.joblib",
+      "trained_at": "2026-11-05T14:24:03+00:00",
+      "thresholds": {
+        "review": 0.018651,
+        "block": 0.307731
+      },
+      "n_trees": 333,
+      "validation_pr_auc": 0.9871,
+      "test": {
+        "pr_auc": 0.9751,
+        "roc_auc": 0.9995,
+        "accuracy_block": 0.999534,
+        "precision_block": 0.9499,
+        "recall_block": 0.9282,
+        "f1_block": 0.9389,
+        "fp_block": 105,
+        "fn_block": 154,
+        "accuracy_review": 0.998355,
+        "precision_review": 0.7096,
+        "recall_review": 0.9716,
+        "f1_review": 0.8201,
+        "fp_review": 853,
+        "fn_review": 61,
+        "fraud_amount_caught_review": 1124892.66,
+        "latency_p50_ms": 13.307
+      }
+    },
+    "xgboost": {
+      "label": "XGBoost",
+      "file": "xgboost.joblib",
+      "trained_at": "2026-11-05T14:24:03+00:00",
+      "thresholds": {
+        "review": 0.012809,
+        "block": 0.169826
+      },
+      "n_trees": 665,
+      "validation_pr_auc": 0.9878,
+      "test": {
+        "pr_auc": 0.9776,
+        "roc_auc": 0.9995,
+        "accuracy_block": 0.999523,
+        "precision_block": 0.9421,
+        "recall_block": 0.9338,
+        "f1_block": 0.938,
+        "fp_block": 123,
+        "fn_block": 142,
+        "accuracy_review": 0.999016,
+        "precision_review": 0.8124,
+        "recall_review": 0.9688,
+        "f1_review": 0.8837,
+        "fp_review": 480,
+        "fn_review": 67,
+        "fraud_amount_caught_review": 1121919.36,
+        "latency_p50_ms": 9.082
+      }
+    },
+    "lightgbm": {
+      "label": "LightGBM",
+      "file": "lightgbm.joblib",
+      "trained_at": "2026-11-05T14:24:03+00:00",
+      "thresholds": {
+        "review": 0.015778,
+        "block": 0.183156
+      },
+      "n_trees": 757,
+      "validation_pr_auc": 0.9865,
+      "test": {
+        "pr_auc": 0.9742,
+        "roc_auc": 0.9994,
+        "accuracy_block": 0.999494,
+        "precision_block": 0.9438,
+        "recall_block": 0.924,
+        "f1_block": 0.9338,
+        "fp_block": 118,
+        "fn_block": 163,
+        "accuracy_review": 0.999102,
+        "precision_review": 0.8335,
+        "recall_review": 0.959,
+        "f1_review": 0.8918,
+        "fp_review": 411,
+        "fn_review": 88,
+        "fraud_amount_caught_review": 1112152.35,
+        "latency_p50_ms": 5.057
+      }
+    },
+    "catboost": {
+      "label": "CatBoost",
+      "file": "catboost.joblib",
+      "trained_at": "2026-11-05T14:24:03+00:00",
+      "thresholds": {
+        "review": 0.201469,
+        "block": 0.323217
+      },
+      "n_trees": 599,
+      "validation_pr_auc": 0.9866,
+      "test": {
+        "pr_auc": 0.9683,
+        "roc_auc": 0.9988,
+        "accuracy_block": 0.999451,
+        "precision_block": 0.9307,
+        "recall_block": 0.9268,
+        "f1_block": 0.9288,
+        "fp_block": 148,
+        "fn_block": 157,
+        "accuracy_review": 0.99934,
+        "precision_review": 0.8955,
+        "recall_review": 0.9385,
+        "f1_review": 0.9165,
+        "fp_review": 235,
+        "fn_review": 132,
+        "fraud_amount_caught_review": 1103797.38,
+        "latency_p50_ms": 4.282
+      }
+    }
+  },
+  "updated_at": "2026-11-05T14:24:03+00:00"
+}

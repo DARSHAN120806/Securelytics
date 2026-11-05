@@ -1,0 +1,11 @@
+data/
+models/
+reports/
+tests/
+*.csv
+fraudTrain.csv/
+fraudTest.csv/
+.git/
+.venv/
+venv/
+__pycache__/
