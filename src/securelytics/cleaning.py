@@ -86,6 +86,26 @@ def _age_years(dob: date, event_ts: int) -> float:
     return (event_day - dob).days / 365.25
 
 
+def redact_payload(payload: str) -> str:
+    """Strip personal data from a rejected raw event before it is stored in the dead-letter queue.
+
+    Name, address, job and date of birth are removed; the card number keeps only its last 4 digits.
+    """
+    import json
+    try:
+        data = json.loads(payload)
+    except (ValueError, TypeError):
+        return str(payload)[:200]
+    if not isinstance(data, dict):
+        return str(payload)[:200]
+    for k in PII_COLUMNS + ["dob"]:
+        if k in data:
+            data[k] = "[redacted]"
+    if data.get("cc_num"):
+        data["cc_num"] = "****" + str(data["cc_num"])[-4:]
+    return json.dumps(data)
+
+
 # --------------------------------------------------------------------------- #
 # Streaming: one record at a time
 # --------------------------------------------------------------------------- #

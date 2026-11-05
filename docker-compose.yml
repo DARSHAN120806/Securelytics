@@ -21,6 +21,7 @@ services:
   # ---------------- infrastructure ----------------
   kafka:
     image: apache/kafka:3.9.0
+    restart: unless-stopped
     ports: ["9092:9092"]
     environment:
       KAFKA_NODE_ID: 1
@@ -64,6 +65,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports: ["6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -72,6 +74,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     ports: ["5432:5432"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-fraud}
@@ -110,12 +113,14 @@ services:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
 
-  dashboard:
+  web:
     <<: *app
-    command: streamlit run services/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    command: uvicorn services.web:app --host 0.0.0.0 --port 8501 --proxy-headers
     ports: ["8501:8501"]
     depends_on:
+      redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
+    restart: unless-stopped
 
   # ---------------- one-off jobs ----------------
   # Train / retrain all four models:  docker compose run --rm trainer

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Securelytics · Fraud monitor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%237C83DB'/%3E%3Cpath d='M16 6l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V9z' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script>
+    // apply the saved theme before first paint (no flash)
+    (function () {
+      var t = localStorage.getItem("sl-theme");
+      if (!t) t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-logo neu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5.3-3.4 9.4-8 11-4.6-1.6-8-5.7-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5" class="stroke"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">Securelytics</div>
+          <div class="brand-sub">Real-time fraud monitor</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav">
+        <a href="#/overview" data-page="overview"><span class="ico" data-icon="grid"></span>Overview</a>
+        <a href="#/alerts" data-page="alerts"><span class="ico" data-icon="bell"></span>Alerts<span class="nav-badge" id="nav-alerts"></span></a>
+        <a href="#/transactions" data-page="transactions"><span class="ico" data-icon="list"></span>Transactions</a>
+        <a href="#/models" data-page="models"><span class="ico" data-icon="cpu"></span>Models</a>
+        <a href="#/score" data-page="score"><span class="ico" data-icon="zap"></span>Score tester</a>
+        <a href="#/system" data-page="system"><span class="ico" data-icon="server"></span>System health</a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="live-model neu-inset" id="side-model">
+          <div class="muted small">Live model</div>
+          <div class="strong" id="side-model-name">–</div>
+        </div>
+        <div class="theme-switch neu-inset" role="group" aria-label="Theme">
+          <button data-theme-set="light" title="Light theme"><span class="ico" data-icon="sun"></span>Light</button>
+          <button data-theme-set="dark" title="Dark theme"><span class="ico" data-icon="moon"></span>Dark</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="btn icon-btn mobile-only" id="menu-btn" aria-label="Menu"><span class="ico" data-icon="menu"></span></button>
+        <div class="page-head">
+          <h1 id="page-title">Overview</h1>
+          <div class="muted small" id="page-sub"></div>
+        </div>
+        <div class="top-actions">
+          <div class="status-dots" id="status-dots" title="Service status"></div>
+          <div class="seg neu-inset" id="scope-seg" role="group" aria-label="Metrics scope">
+            <button data-scope="live" class="on">Live model</button>
+            <button data-scope="all">All models</button>
+          </div>
+          <label class="select-wrap neu-inset" title="Auto refresh">
+            <span class="ico" data-icon="refresh"></span>
+            <select id="refresh-sel" aria-label="Auto refresh">
+              <option value="0">Off</option>
+              <option value="5">5s</option>
+              <option value="10" selected>10s</option>
+              <option value="30">30s</option>
+            </select>
+          </label>
+          <button class="btn icon-btn" id="refresh-btn" title="Refresh now" aria-label="Refresh now"><span class="ico" data-icon="refresh"></span></button>
+          <button class="btn" id="admin-btn"><span class="ico" data-icon="lock"></span><span id="admin-label">Admin login</span></button>
+        </div>
+      </header>
+
+      <div id="banner" class="banner hidden" role="alert"></div>
+      <main id="view" class="view" tabindex="-1"></main>
+      <footer class="foot muted small">Updated <span id="updated">–</span> · Data: Sparkov synthetic transactions</footer>
+    </div>
+  </div>
+
+  <!-- alert detail drawer -->
+  <div class="scrim hidden" id="scrim"></div>
+  <aside class="drawer neu hidden" id="drawer" aria-hidden="true">
+    <div class="drawer-head">
+      <h2 id="drawer-title">Alert</h2>
+      <button class="btn icon-btn" id="drawer-close" aria-label="Close"><span class="ico" data-icon="x"></span></button>
+    </div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </aside>
+
+  <!-- admin login modal -->
+  <div class="modal hidden" id="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <form class="modal-card neu" id="login-form" autocomplete="off">
+      <h2 id="login-title">Admin login</h2>
+      <p class="muted small">Admins can switch the live model. The password is <code>ADMIN_PASSWORD</code> in your <code>.env</code>.</p>
+      <label class="field">Your name<input class="input" name="name" required maxlength="40" placeholder="e.g. Darshan"></label>
+      <label class="field">Password<input class="input" name="password" type="password" required></label>
+      <div class="form-error" id="login-error"></div>
+      <div class="row-end">
+        <button type="button" class="btn" id="login-cancel">Cancel</button>
+        <button type="submit" class="btn primary">Log in</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

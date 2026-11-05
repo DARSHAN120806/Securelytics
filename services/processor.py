@@ -35,6 +35,7 @@ running = True
 BATCH_SIZE = 500
 DEDUPE_TTL = 3 * 86400
 SHADOW = os.getenv("SHADOW_SCORING", "true").lower() == "true"
+HEARTBEAT_KEY = "securelytics:processor:heartbeat"
 
 
 def stop(*_):
@@ -93,7 +94,8 @@ def main() -> None:
 
     stats = {"processed": 0, "alerts": 0, "invalid": 0, "duplicates": 0}
     latencies: list[float] = []
-    last_log = time.time()
+    last_log = last_beat = time.time()
+    started = time.time()
     log.info("consuming from %s", config.TOPIC_TRANSACTIONS)
 
     while running:
@@ -147,6 +149,14 @@ def main() -> None:
             stats["processed"] += len(results)
         if msgs:
             consumer.commit(asynchronous=False)  # only after results are safely stored
+
+        if time.time() - last_beat >= 2:  # heartbeat for the dashboard's System page
+            try:
+                r.set(HEARTBEAT_KEY, json.dumps({"ts": time.time(), "started": started, "active_model": scorer.active,
+                                                 "models": list(scorer.models), "shadow": SHADOW, **stats}), ex=60)
+            except redis.RedisError as exc:
+                log.warning("heartbeat failed: %s", exc)
+            last_beat = time.time()
 
         if time.time() - last_log >= 10 and latencies:
             q = statistics.quantiles(latencies, n=100)

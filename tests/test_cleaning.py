@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from securelytics.cleaning import ValidationError, clean_dataframe, clean_record
+from securelytics.cleaning import ValidationError, clean_dataframe, clean_record, redact_payload
 
 GOOD = {
     "trans_date_trans_time": "2020-06-21 12:14:25", "cc_num": "2291163933867244",
@@ -49,3 +49,13 @@ def test_batch_and_stream_cleaning_are_identical(raw_test_sample):
         for k, v in rec.items():
             if k != "trans_id":
                 assert row[k] == v, (k, row[k], v)
+
+
+def test_dead_letter_payloads_are_redacted():
+    import json
+    out = json.loads(redact_payload(json.dumps({**GOOD, "amt": "oops"})))
+    assert out["cc_num"] == "****7244"
+    for k in ("first", "last", "street", "city", "state", "zip", "job", "dob"):
+        assert out[k] == "[redacted]"
+    assert out["amt"] == "oops" and out["merchant"] == GOOD["merchant"]
+    assert redact_payload("{not json") == "{not json"

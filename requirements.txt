@@ -6,13 +6,12 @@ scipy==1.18.1
 joblib==1.6.0
 matplotlib>=3.9
 
-# Streaming / storage / serving
+# Streaming / storage / serving (the web dashboard uses Starlette, which comes with FastAPI)
 confluent-kafka>=2.6
 redis>=5.0
 psycopg[binary]>=3.2
 fastapi>=0.115
 uvicorn>=0.30
-streamlit>=1.46
 
 # Dev
 pytest>=8

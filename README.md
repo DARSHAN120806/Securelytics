@@ -8,13 +8,15 @@
 A streaming system that scores every card transaction for fraud **as it happens**:
 Kafka → stream processor (Redis feature store + ML models + rules) → Postgres → live dashboard,
 with an explanation for every alert. Four models (HistGradientBoosting, XGBoost, LightGBM, CatBoost)
-are trained and compared, and an **admin panel** switches the live model with one click.
+are trained and compared, and a **web dashboard** (light + dark theme) lets an admin switch the live model with one click.
+
+![Securelytics dashboard, light theme](docs/images/dashboard-light.png)
 
 ```
  fraudTest.csv ──► Producer ──► Kafka [transactions] ──► Stream processor ──► Kafka [fraud-alerts]
  (+ injected attacks)                                    │   1. validate & clean      │
                                                          │   2. dedupe (Redis)        ▼
-                                Redis feature store ◄───►│   3. card-history features  Postgres ──► Streamlit dashboard
+                                Redis feature store ◄───►│   3. card-history features  Postgres ──► Web dashboard (:8501)
                                 (card history, 7-day     │   4. ML score + rules           │
                                  windows, merchants)     │   5. decision + reasons         └──► FastAPI (/score, /alerts)
                                                          └── invalid events ──► Kafka [transactions-dlq]
@@ -64,7 +66,7 @@ Data cleaning report: `reports/data_quality.json`.
 | ML | HistGradientBoosting (scikit-learn), XGBoost, LightGBM, CatBoost; logistic regression baseline |
 | Storage | PostgreSQL 16 |
 | API | FastAPI |
-| Dashboard + admin panel | Streamlit (multi-page) |
+| Dashboard | Starlette JSON API + vanilla JS single-page app (neumorphic UI, light/dark, hand-made SVG charts, no build step) |
 | Ops | Docker Compose, Kafka UI, pytest |
 
 ## Project structure
@@ -81,6 +83,7 @@ Securelytics/
 │   ├── train.py              STEP 2: train 4 models, tune thresholds by cost, compare, plots
 │   ├── registry.py           which models exist + which one is live (Redis)
 │   ├── live_metrics.py       per-model live metrics from shadow scores
+│   ├── dashboard_data.py     SQL queries behind the dashboard
 │   ├── eda.py                exploratory charts
 │   ├── model.py              model wrapper: score, decide, explain (reason codes)
 │   ├── rules.py              expert rules (card testing, velocity) that can escalate decisions
@@ -89,16 +92,16 @@ Securelytics/
 ├── services/
 │   ├── producer.py           replays fraudTest.csv into Kafka, can inject attacks
 │   ├── processor.py          Kafka consumer → scoring → Postgres + alerts topic
-│   ├── api.py                REST API (score, alerts, list/switch models)
-│   ├── dashboard.py          live monitoring + analyst feedback
-│   ├── pages/1_Admin_panel.py  admin: compare models, switch live model, audit log
-│   └── ui_common.py          shared dashboard helpers
+│   ├── api.py                REST API for integrations (score, alerts, list/switch models), OpenAPI docs
+│   ├── web.py                web dashboard backend (JSON API + serves the frontend)
+│   └── static/               dashboard frontend: index.html, css/app.css, js/app.js, js/charts.js
 ├── storage/schema.sql        tables: transactions, alerts, dead_letters, model_switches
 ├── models/                   4 trained models (<name>.joblib) + registry.json
 │                             (card_state_snapshot.json is generated locally, not committed)
 ├── reports/                  model comparison, data quality, EDA charts
+├── docs/images/              dashboard screenshots
 ├── notebooks/                train_on_colab.ipynb: train all 4 models on Google Colab
-├── tests/                    28 tests incl. batch/stream parity, offline/online parity, model switching
+├── tests/                    29 tests incl. batch/stream parity, offline/online parity, model switching
 ├── run_training.bat          Windows one-click training
 ├── run_report.bat            Windows one-click report/charts
 ├── docker-compose.yml, Dockerfile
@@ -130,7 +133,7 @@ Securelytics/
    docker compose up
    ```
 5. **Open:**
-   - Dashboard: http://localhost:8501, with **Admin panel** in the sidebar (password from `.env`)
+   - Dashboard: http://localhost:8501 (admin login with the password from `.env`)
    - API docs (try `/score`, `/models`): http://localhost:8000/docs
    - Kafka UI (see topics and messages): http://localhost:8080
 6. **Stop:** `Ctrl+C`, then `docker compose down` (add `-v` to wipe the database).
@@ -163,24 +166,37 @@ python -m securelytics.prepare                       # ~1 min: clean + features 
 python -m securelytics.train                         # all 4 models (or: --models xgboost catboost)
 python -m securelytics.eda                           # EDA charts
 python -m securelytics.report                        # rebuild comparison table/charts without retraining
-pytest -q                                            # 28 tests
+pytest -q                                            # 29 tests
 ```
 
-## Admin panel: switching models
+## Dashboard
 
-Dashboard → **Admin panel** (sidebar) → log in with `ADMIN_PASSWORD`.
+Open **http://localhost:8501**. Light and dark themes (toggle in the sidebar, remembered per browser), soft
+neumorphic surfaces and solid pastel colours, responsive down to phone width.
 
-1. **Live model**: pick one of the four models and click **Activate**. The choice is stored in Redis; the
-   stream processor checks it before every batch and switches within about a second, with no restart.
-   Every switch is logged (who, when, why) in the `model_switches` table.
-2. **Offline comparison**: PR-AUC, ROC-AUC, accuracy, precision, recall, F1, false blocks, missed fraud and
-   latency for each model on the unseen test period, plus PR/ROC curve charts.
-3. **Live comparison (shadow scoring)**: every transaction is scored by *all* models; only the live model's
-   decision is applied. So you can see how each model *would* do on the same live traffic before switching.
-4. **Actual decisions by model**: what each model really decided while it was live.
+| Page | What you can do |
+|---|---|
+| **Overview** | KPIs (transactions, alerts, fraud $ caught, precision, recall, latency), traffic and alerts per minute, decision split, alerts by category, score distribution, latest alerts. Switch between *live model* and *all models* metrics. |
+| **Alerts** | Search (merchant, card last 4, id), filter by decision, category, ground truth, review status and model, paginate. Click an alert for its score gauge, reasons, what every model thought, key features, and to **label it** (confirm fraud / legitimate) for the feedback loop. |
+| **Transactions** | Every scored transaction with the same search and filters. |
+| **Models** | The four models side by side (PR-AUC, ROC-AUC, precision, recall, F1, false blocks, missed fraud, latency), offline comparison chart, live shadow-scoring comparison, actual decisions per model, switch history. **Admins switch the live model here.** |
+| **Score tester** | Score any transaction with the live model using the card's real history (presets included). Nothing is saved. |
+| **System health** | Database, Redis, stream processor (heartbeat) and model status, dead-letter queue (personal data redacted), troubleshooting commands. |
 
-On the main dashboard, metrics default to **the live model only**, so they change with the model you select.
-The same switch is available from the API: `PUT /models/active` with header `X-Admin-Token`.
+If Postgres, Redis or the processor is down, the dashboard says so with the exact command to fix it, instead of
+showing an error page. It auto-refreshes every 10 s (configurable) and pauses while a detail panel is open.
+
+| Dark theme | Alert details |
+|---|---|
+| ![dark](docs/images/dashboard-dark.png) | ![alert](docs/images/alert-detail.png) |
+| **Model management (admin)** | **Score tester** |
+| ![models](docs/images/models-admin.png) | ![score](docs/images/score-tester.png) |
+
+### Switching the live model
+Log in with **Admin login** (top right; name + `ADMIN_PASSWORD` from `.env`), open **Models**, pick a model and
+click **Activate** (or **Make live** on a model card). The choice is stored in Redis; the stream processor checks
+it before every batch and switches within about a second, with no restart. Every switch is logged (who, when, why).
+The same switch is available from the REST API: `PUT /models/active` with header `X-Admin-Token`.
 Newly trained models are picked up automatically when `models/registry.json` changes.
 
 ## How it works

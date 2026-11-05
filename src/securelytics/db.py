@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import psycopg
 
 from . import config
+from .cleaning import redact_payload
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ def write_results(conn: psycopg.Connection, results: list[dict]) -> None:
 
 
 def write_dead_letter(conn: psycopg.Connection, payload: str, error: str) -> None:
+    payload = redact_payload(payload)
     with conn.cursor() as cur:
         cur.execute("INSERT INTO dead_letters (payload, error) VALUES (%s, %s)", (payload[:10000], error[:1000]))
     conn.commit()
