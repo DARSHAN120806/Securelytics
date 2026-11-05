@@ -8,6 +8,7 @@ so the UI can show what is wrong.
 """
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import decimal
 import hmac
@@ -31,6 +32,7 @@ from starlette.staticfiles import StaticFiles  # noqa: E402
 
 from securelytics import config  # noqa: E402
 from securelytics import dashboard_data as dd  # noqa: E402
+from securelytics import db as dbmod  # noqa: E402
 from securelytics.registry import (ACTIVE_KEY, MODEL_CATALOG, get_active, load_models,  # noqa: E402
                                    read_registry, registry_path)
 from securelytics.scoring import Scorer, ValidationError  # noqa: E402
@@ -82,8 +84,16 @@ def with_db(fn):
     """Run fn(conn, request); turn infrastructure failures into friendly JSON errors."""
     async def endpoint(request: Request):
         try:
-            with db_conn() as conn:
-                return await fn(conn, request)
+            try:
+                with db_conn() as conn:
+                    return await fn(conn, request)
+            except psycopg.errors.UndefinedTable:
+                # database exists but its tables were never created: create them and retry once
+                log.warning("tables missing; creating schema")
+                with db_conn() as conn:
+                    dbmod.ensure_schema(conn)
+                with db_conn() as conn:
+                    return await fn(conn, request)
         except psycopg.OperationalError as exc:
             log.warning("database unavailable: %s", exc)
             return err("database_unavailable",
@@ -140,7 +150,13 @@ async def status(request: Request):
            "processor": {"ok": False}, "models": {}}
     try:
         with db_conn() as conn:
-            out["db"] = {"ok": True, **dd.db_stats(conn)}
+            try:
+                stats = dd.db_stats(conn)
+            except psycopg.errors.UndefinedTable:
+                conn.rollback()
+                dbmod.ensure_schema(conn)
+                stats = dd.db_stats(conn)
+            out["db"] = {"ok": True, **stats}
     except Exception as exc:  # noqa: BLE001
         out["db"]["error"] = str(exc).splitlines()[0][:200]
     try:
@@ -305,4 +321,18 @@ routes = [
     Route("/api/dead-letters", dead_letters),
     Mount("/static", StaticFiles(directory=STATIC), name="static"),
 ]
-app = Starlette(routes=routes)
+def _startup() -> None:
+    try:
+        with db_conn() as conn:
+            dbmod.ensure_schema(conn)
+    except Exception as exc:  # noqa: BLE001 - the UI shows a clear message if the DB is down
+        log.warning("could not check database schema at startup: %s", exc)
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app):
+    _startup()
+    yield
+
+
+app = Starlette(routes=routes, lifespan=lifespan)

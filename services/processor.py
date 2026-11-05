@@ -83,6 +83,7 @@ def main() -> None:
 
     scorer = Scorer(store, models, active=active, dedupe=make_dedupe(r), shadow=SHADOW)
     conn = db.connect()
+    db.ensure_schema(conn)
     consumer = Consumer({
         "bootstrap.servers": config.KAFKA_BOOTSTRAP,
         "group.id": "fraud-scorer",

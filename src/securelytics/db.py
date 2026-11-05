@@ -28,6 +28,21 @@ ON CONFLICT (trans_id) DO NOTHING
 """
 
 
+SCHEMA_FILE = config.ROOT / "storage" / "schema.sql"
+
+
+def ensure_schema(conn: psycopg.Connection) -> None:
+    """Create any missing tables. Safe to run every start (schema.sql only uses IF NOT EXISTS).
+
+    Postgres runs storage/schema.sql automatically only when its data volume is first created;
+    calling this from the services means a database created without tables heals itself.
+    """
+    with conn.cursor() as cur:
+        cur.execute(SCHEMA_FILE.read_text(encoding="utf-8"))
+    conn.commit()
+    log.info("database schema checked")
+
+
 def connect(dsn: str = config.POSTGRES_DSN, retries: int = 30) -> psycopg.Connection:
     for attempt in range(1, retries + 1):
         try:
