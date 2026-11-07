@@ -30,6 +30,7 @@
     alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
     database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>',
+    card: '<rect x="2" y="5" width="20" height="14" rx="3"/><line x1="2" y1="10" x2="22" y2="10"/>',
     layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
   };
   const icon = (n) => `<span class="ico">${svgIcon(n)}</span>`;
@@ -62,6 +63,7 @@
   const truthChip = (v) => (v === 1 ? '<span class="chip block plain">fraud</span>' : v === 0 ? '<span class="chip neutral plain">legit</span>' : '<span class="faint">?</span>');
   const reviewChip = (v) => (v === 1 ? '<span class="chip block plain">confirmed fraud</span>' : v === 0 ? '<span class="chip approve plain">marked legit</span>' : '<span class="chip neutral plain">pending</span>');
   const scoreBar = (s, w = 48) => `<div style="display:flex;align-items:center;gap:8px"><div class="bar" style="width:${w}px"><span style="width:${Math.max(2, Math.min(100, s * 100))}%;background:var(${s >= 0.5 ? "--coral" : s >= 0.05 ? "--amber" : "--mint"})"></span></div><span class="num small">${fScore(s)}</span></div>`;
+  const appChip = (id) => (String(id || "").startsWith("TXN-") ? ' <span class="chip info plain" title="Made in the payment app">app</span>' : "");
   const reasonText = (rs) => (Array.isArray(rs) ? rs.map((r) => r.text).join(" · ") : "");
   const CATEGORIES = ["entertainment", "food_dining", "gas_transport", "grocery_net", "grocery_pos", "health_fitness", "home", "kids_pets", "misc_net", "misc_pos", "personal_care", "shopping_net", "shopping_pos", "travel"];
   const catLabel = (c) => (c || "").replace("_", " · ");
@@ -231,7 +233,7 @@
       $("#ov-alerts").innerHTML = d.recent_alerts.length
         ? d.recent_alerts.map((a) => `<div class="alert-item" data-id="${esc(a.trans_id)}" tabindex="0" role="button">
             ${decChip(a.decision)}
-            <div style="min-width:0"><div class="cell-main">${esc(a.merchant)} <span class="muted small">· ${esc(a.category)} · ****${esc(a.card_last4)}</span></div>
+            <div style="min-width:0"><div class="cell-main">${esc(a.merchant)}${appChip(a.trans_id)} <span class="muted small">· ${esc(a.category)} · ****${esc(a.card_last4)}</span></div>
             <div class="reason-line">${esc(reasonText(a.reasons))}</div></div>
             <div class="right"><div class="alert-amt">${fMoney(a.amt, 2)}</div><div class="muted small">${ago(a.created_at)} · ${esc(mLabel(a.model_name))}</div></div></div>`).join("")
         : `<div class="empty">${icon("inbox")}<div>No alerts yet</div></div>`;
@@ -283,12 +285,12 @@
           $("#t-table").innerHTML = `<table class="tbl"><thead><tr><th>Time</th><th>Decision</th><th>Score</th><th>Card</th><th>Merchant · reasons</th><th class="right">Amount</th><th>Model</th><th>Truth</th><th>Review</th></tr></thead><tbody>
             ${items.map((a) => `<tr class="clickable" data-id="${esc(a.trans_id)}" tabindex="0"><td class="nowrap"><div class="cell-main num">${fHM(a.created_at)}</div><div class="cell-sub">${fDay(a.created_at)}</div></td>
               <td>${decChip(a.decision)}</td><td>${scoreBar(a.score)}</td><td class="mono">****${esc(a.card_last4)}</td>
-              <td><div class="cell-main">${esc(a.merchant)} <span class="muted small">· ${esc(a.category)}</span></div><div class="reason-line">${esc(reasonText(a.reasons))}</div></td>
+              <td><div class="cell-main">${esc(a.merchant)}${appChip(a.trans_id)} <span class="muted small">· ${esc(a.category)}</span></div><div class="reason-line">${esc(reasonText(a.reasons))}</div></td>
               <td class="right num strong">${fMoney(a.amt, 2)}</td><td class="small">${esc(mLabel(a.model_name))}</td><td>${truthChip(a.is_fraud)}</td><td>${reviewChip(a.analyst_label)}</td></tr>`).join("")}</tbody></table>`;
         } else {
           $("#t-table").innerHTML = `<table class="tbl"><thead><tr><th>Processed</th><th>Decision</th><th>Score</th><th>Card</th><th>Merchant</th><th>Category</th><th class="right">Amount</th><th>Model</th><th>Truth</th><th class="right">Latency</th></tr></thead><tbody>
             ${items.map((t) => `<tr class="clickable" data-id="${esc(t.trans_id)}" data-dec="${t.decision}" tabindex="0"><td class="nowrap"><div class="cell-main num">${fHM(t.processed_at)}</div><div class="cell-sub">${fDay(t.processed_at)}</div></td><td>${decChip(t.decision)}</td><td>${scoreBar(t.score)}</td>
-              <td class="mono">****${esc(t.card_last4)}</td><td class="cell-main">${esc(t.merchant)}</td><td class="small muted">${esc(t.category)}</td><td class="right num strong">${fMoney(t.amt, 2)}</td>
+              <td class="mono">****${esc(t.card_last4)}</td><td class="cell-main">${esc(t.merchant)}${appChip(t.trans_id)}</td><td class="small muted">${esc(t.category)}</td><td class="right num strong">${fMoney(t.amt, 2)}</td>
               <td class="small">${esc(mLabel(t.model_name))}</td><td>${truthChip(t.is_fraud)}</td><td class="right num small">${fMs(t.scoring_ms)}</td></tr>`).join("")}</tbody></table>`;
         }
         $$("#t-table tr.clickable").forEach((tr) => {
@@ -594,11 +596,11 @@ docker compose up -d</pre>
         <div id="dr-gauge"></div>
         <div style="flex:1;min-width:160px"><div style="display:flex;gap:8px;align-items:center">${decChip(a.decision)} ${truthChip(a.is_fraud)}</div>
           <div style="font-size:26px;font-weight:800;margin-top:6px" class="num">${fMoney(a.amt, 2)}</div>
-          <div class="cell-main">${esc(a.merchant)}</div><div class="muted small">${esc(a.category)} · card ****${esc(a.card_last4)}</div></div>
+          <div class="cell-main">${esc(a.merchant)}${appChip(a.trans_id)}</div><div class="muted small">${esc(a.category)} · card ****${esc(a.card_last4)}</div></div>
       </div>
       <div class="kv"><div><span>Event time (UTC)</span><span>${fEvent(a.event_ts)}</span></div><div><span>Processed</span><span>${fDateTime(a.processed_at)}</span></div>
         <div><span>Decided by</span><span>${esc(mLabel(a.model_name))}</span></div><div><span>Scoring time</span><span>${fMs(a.scoring_ms)}</span></div>
-        <div><span>Transaction id</span><span class="mono small" title="${esc(a.trans_id)}">${esc(a.trans_id.slice(0, 12))}…</span></div><div><span>End-to-end</span><span>${fMs(a.e2e_ms)}</span></div></div>
+        <div><span>Transaction id</span><span class="mono small" title="${esc(a.trans_id)}">${esc(a.trans_id.length > 22 ? a.trans_id.slice(0, 20) + "…" : a.trans_id)}</span></div><div><span>End-to-end</span><span>${fMs(a.e2e_ms)}</span></div></div>
       <div><div class="section-title">Why it was flagged</div>${reasonsHtml(a.reasons, a.decision)}</div>
       <div><div class="section-title">What every model thought</div>${shadowHtml(a.shadow_scores, cat, a.model_name)}</div>
       <div><div class="section-title">Key features</div>${featuresHtml(a.features || {})}</div>
@@ -621,10 +623,10 @@ docker compose up -d</pre>
     if (!t) return;
     openDrawer("Transaction");
     $("#drawer-body").innerHTML = `<div class="card" style="box-shadow:var(--inset)"><div style="display:flex;gap:8px">${decChip(t.decision)} ${truthChip(t.is_fraud)}</div>
-      <div style="font-size:26px;font-weight:800;margin-top:6px" class="num">${fMoney(t.amt, 2)}</div><div class="cell-main">${esc(t.merchant)}</div><div class="muted small">${esc(t.category)} · card ****${esc(t.card_last4)}</div></div>
+      <div style="font-size:26px;font-weight:800;margin-top:6px" class="num">${fMoney(t.amt, 2)}</div><div class="cell-main">${esc(t.merchant)}${appChip(t.trans_id)}</div><div class="muted small">${esc(t.category)} · card ****${esc(t.card_last4)}</div></div>
       <div class="kv"><div><span>Score</span><span>${fScore(t.score)}</span></div><div><span>Decided by</span><span>${esc(mLabel(t.model_name))}</span></div>
       <div><span>Event time (UTC)</span><span>${fEvent(t.event_ts)}</span></div><div><span>Processed</span><span>${fDateTime(t.processed_at)}</span></div>
-      <div><span>Scoring time</span><span>${fMs(t.scoring_ms)}</span></div><div><span>Transaction id</span><span class="mono small">${esc(t.trans_id.slice(0, 12))}…</span></div></div>
+      <div><span>Scoring time</span><span>${fMs(t.scoring_ms)}</span></div><div><span>Transaction id</span><span class="mono small" title="${esc(t.trans_id)}">${esc(t.trans_id.length > 22 ? t.trans_id.slice(0, 20) + "…" : t.trans_id)}</span></div></div>
       <div class="muted small">Approved transactions are stored without reason codes. Try it in the <a href="#/score">Score tester</a> to see the full breakdown.</div>`;
   }
 
@@ -646,9 +648,14 @@ docker compose up -d</pre>
 
   /* -------------------------------------------------------------- router ---- */
   async function route() {
-    const page = (location.hash.replace("#/", "") || "overview").split("?")[0];
+    const [page, query] = (location.hash.replace("#/", "") || "overview").split("?");
     S.page = PAGES[page] ? page : "overview";
     const P = PAGES[S.page];
+    if (query && P.f) {  // e.g. #/transactions?q=TXN-20201231-AB12CD34 (link from the payment app receipt)
+      const qp = new URLSearchParams(query);
+      Object.assign(P.f, { q: "", decision: "", category: "", truth: "", review: "", model: "", offset: 0 });
+      qp.forEach((val, key) => { if (key in P.f) P.f[key] = val; });
+    }
     $$("#nav a").forEach((a) => a.classList.toggle("active", a.dataset.page === S.page));
     $("#page-title").textContent = P.title;
     $("#page-sub").textContent = P.sub();

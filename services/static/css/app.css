@@ -146,6 +146,7 @@ select option { background: var(--bg); color: var(--text); }
 .nav a:hover { color: var(--text); }
 .nav a.active { color: var(--text); box-shadow: var(--shadow-sm); }
 .nav a.active .ico { color: var(--accent); }
+.nav a.nav-ext { margin-top: 10px; border-top: 1px dashed var(--line); border-radius: 0 0 14px 14px; padding-top: 16px; }
 .nav-badge { margin-left: auto; font-size: 11px; background: var(--coral-soft); color: var(--coral-ink); border-radius: 999px; padding: 1px 8px; }
 .nav-badge:empty { display: none; }
 

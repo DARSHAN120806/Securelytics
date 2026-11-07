@@ -33,6 +33,7 @@ from starlette.staticfiles import StaticFiles  # noqa: E402
 from securelytics import config  # noqa: E402
 from securelytics import dashboard_data as dd  # noqa: E402
 from securelytics import db as dbmod  # noqa: E402
+from securelytics import payments  # noqa: E402
 from securelytics.registry import (ACTIVE_KEY, MODEL_CATALOG, get_active, load_models,  # noqa: E402
                                    read_registry, registry_path)
 from securelytics.scoring import Scorer, ValidationError  # noqa: E402
@@ -299,12 +300,82 @@ async def dead_letters(conn, request: Request):
     return J(dd.dead_letters(conn, _int(request.query_params.get("limit"), 50, 1, 500)))
 
 
+# ------------------------------------------------------------ payment app --
+_kafka: dict = {}
+
+
+def kafka_producer():
+    if "p" not in _kafka:
+        from confluent_kafka import Producer
+        _kafka["p"] = Producer({"bootstrap.servers": config.KAFKA_BOOTSTRAP, "linger.ms": 0,
+                                "message.timeout.ms": 8000, "enable.idempotence": True})
+    return _kafka["p"]
+
+
+def card_last_ts(r, cc_num: str) -> int | None:
+    raw = r.hget(f"card:{cc_num}:stats", "last_ts")
+    if raw is None:
+        return None
+    return int(float(raw.decode() if isinstance(raw, bytes) else raw))
+
+
+async def pay_cards(request: Request):
+    try:
+        cards = payments.load_cards()
+    except FileNotFoundError:
+        return err("dataset_missing", "fraudTest.csv was not found in data/raw, so there are no cardholders to load.", 503)
+    try:
+        r = rds()
+        out = [payments.public_card(c, card_last_ts(r, c["cc_num"])) for c in cards.values()]
+    except redis.ConnectionError:
+        return err("redis_unavailable", "The bank's systems are offline (Redis). Try again shortly.", 503)
+    return J({"cards": out, "categories": payments.CATEGORY_LABELS, "cities": list(payments.CITIES)})
+
+
+async def pay(request: Request):
+    body = await request.json()
+    try:
+        cards = payments.load_cards()
+    except FileNotFoundError:
+        return err("dataset_missing", "fraudTest.csv was not found in data/raw.", 503)
+    card = cards.get(body.get("card_id"))
+    if not card:
+        return err("bad_request", "Unknown card.", 400)
+    try:
+        r = rds()
+        event, receipt = payments.build_event(card, body, card_last_ts(r, card["cc_num"]))
+    except payments.PaymentError as exc:
+        return err("invalid_payment", str(exc), 422)
+    except redis.ConnectionError:
+        return err("redis_unavailable", "The bank's systems are offline (Redis). Try again shortly.", 503)
+    event["sent_at_ms"] = int(time.time() * 1000)
+    delivered: dict = {}
+    try:
+        p = kafka_producer()
+        p.produce(config.TOPIC_TRANSACTIONS, key=card["cc_num"], value=json.dumps(event),
+                  on_delivery=lambda e, m: delivered.update(error=e))
+        p.flush(8)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("kafka publish failed: %s", exc)
+        delivered["error"] = exc
+    if "error" not in delivered or delivered["error"] is not None:
+        return err("network_unavailable", "The payment network is unavailable (Kafka). Please try again.", 503)
+    return J(receipt)
+
+
+async def pay_page(request: Request):
+    return FileResponse(STATIC / "pay.html", headers={"Cache-Control": "no-cache"})
+
+
 async def index(request: Request):
     return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 routes = [
     Route("/", index),
+    Route("/pay", pay_page),
+    Route("/api/pay/cards", pay_cards),
+    Route("/api/pay", pay, methods=["POST"]),
     Route("/api/status", status),
     Route("/api/overview", overview),
     Route("/api/alerts", alerts),
@@ -322,11 +393,20 @@ routes = [
     Mount("/static", StaticFiles(directory=STATIC), name="static"),
 ]
 def _startup() -> None:
+    import threading
+    threading.Thread(target=_warm_cards, daemon=True).start()  # payment app: load cardholders in the background
     try:
         with db_conn() as conn:
             dbmod.ensure_schema(conn)
     except Exception as exc:  # noqa: BLE001 - the UI shows a clear message if the DB is down
         log.warning("could not check database schema at startup: %s", exc)
+
+
+def _warm_cards() -> None:
+    try:
+        payments.load_cards()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("payment app: could not load cardholders: %s", exc)
 
 
 @contextlib.asynccontextmanager

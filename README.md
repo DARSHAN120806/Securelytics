@@ -84,6 +84,7 @@ Securelytics/
 │   ├── registry.py           which models exist + which one is live (Redis)
 │   ├── live_metrics.py       per-model live metrics from shadow scores
 │   ├── dashboard_data.py     SQL queries behind the dashboard
+│   ├── payments.py           payment app: cardholders, payment -> raw card event
 │   ├── eda.py                exploratory charts
 │   ├── model.py              model wrapper: score, decide, explain (reason codes)
 │   ├── rules.py              expert rules (card testing, velocity) that can escalate decisions
@@ -94,14 +95,14 @@ Securelytics/
 │   ├── processor.py          Kafka consumer → scoring → Postgres + alerts topic
 │   ├── api.py                REST API for integrations (score, alerts, list/switch models), OpenAPI docs
 │   ├── web.py                web dashboard backend (JSON API + serves the frontend)
-│   └── static/               dashboard frontend: index.html, css/app.css, js/app.js, js/charts.js
+│   └── static/               frontends: dashboard (index.html, app.js, charts.js) + payment app (pay.html, pay.js)
 ├── storage/schema.sql        tables: transactions, alerts, dead_letters, model_switches
 ├── models/                   4 trained models (<name>.joblib) + registry.json
 │                             (card_state_snapshot.json is generated locally, not committed)
 ├── reports/                  model comparison, data quality, EDA charts
 ├── docs/images/              dashboard screenshots
 ├── notebooks/                train_on_colab.ipynb: train all 4 models on Google Colab
-├── tests/                    29 tests incl. batch/stream parity, offline/online parity, model switching
+├── tests/                    39 tests incl. batch/stream parity, offline/online parity, model switching
 ├── run_training.bat          Windows one-click training
 ├── run_report.bat            Windows one-click report/charts
 ├── docker-compose.yml, Dockerfile
@@ -134,6 +135,7 @@ Securelytics/
    ```
 5. **Open:**
    - Dashboard: http://localhost:8501 (admin login with the password from `.env`)
+   - Payment app (make your own card payments): http://localhost:8501/pay
    - API docs (try `/score`, `/models`): http://localhost:8000/docs
    - Kafka UI (see topics and messages): http://localhost:8080
 6. **Stop:** `Ctrl+C`, then `docker compose down` (add `-v` to wipe the database).
@@ -166,7 +168,7 @@ python -m securelytics.prepare                       # ~1 min: clean + features 
 python -m securelytics.train                         # all 4 models (or: --models xgboost catboost)
 python -m securelytics.eda                           # EDA charts
 python -m securelytics.report                        # rebuild comparison table/charts without retraining
-pytest -q                                            # 29 tests
+pytest -q                                            # 39 tests
 ```
 
 ## Dashboard
@@ -191,6 +193,30 @@ showing an error page. It auto-refreshes every 10 s (configurable) and pauses wh
 | ![dark](docs/images/dashboard-dark.png) | ![alert](docs/images/alert-detail.png) |
 | **Model management (admin)** | **Score tester** |
 | ![models](docs/images/models-admin.png) | ![score](docs/images/score-tester.png) |
+
+## Payment app: make a payment and watch the model judge it
+
+Open **http://localhost:8501/pay** (also linked from the dashboard sidebar). It plays the customer's side:
+
+1. **Choose your card**: 8 cardholders from the dataset (busy cards with no fraud history). In this demo the card is your login.
+2. **Make a payment**: amount, category, merchant, location (near home or another US city), date and time, and an auto-generated transaction ID.
+3. **Payment successful**: the customer always gets a receipt. Like a real bank, the fraud decision happens in the background.
+
+Behind the scenes the payment is published to Kafka exactly like a replayed card swipe, so it goes through the normal
+pipeline: validation, the card's real history from Redis, the **trained live model**, the rules, Postgres. Nothing
+in the payment app decides anything: the result on the admin dashboard is purely the model's output. Payments made
+in the app have no ground-truth label (shown as **?**), just like real payments; an analyst can label them.
+
+The receipt links straight to the transaction on the admin dashboard (marked **app**). Try a normal grocery payment
+in the afternoon, then a large online purchase at 2 AM in another city, and compare.
+
+**Simulation clock:** each card's history comes from the replayed 2020 data, so payments are dated just after the
+card's last real transaction (within 7 days). Using today's date would make every card look inactive for years,
+which no model has seen in training.
+
+| Choose a card | Receipt (customer view) | Same payment on the admin dashboard |
+|---|---|---|
+| ![cards](docs/images/pay-cards.png) | ![receipt](docs/images/pay-receipt.png) | ![admin](docs/images/pay-admin-view.png) |
 
 ### Switching the live model
 Log in with **Admin login** (top right; name + `ADMIN_PASSWORD` from `.env`), open **Models**, pick a model and

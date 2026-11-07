@@ -118,6 +118,7 @@ services:
     command: uvicorn services.web:app --host 0.0.0.0 --port 8501 --proxy-headers
     ports: ["8501:8501"]
     depends_on:
+      kafka-init: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
     restart: unless-stopped

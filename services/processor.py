@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+import psycopg  # noqa: E402
 import redis  # noqa: E402
 from confluent_kafka import Consumer, KafkaError, Producer  # noqa: E402
 
@@ -140,7 +141,20 @@ def main() -> None:
             latencies.append(res["scoring_ms"])
 
         if results:
-            db.write_results(conn, results)
+            # Card history and dedupe markers are already saved, so the write must not be lost:
+            # keep retrying (offsets are not committed until it succeeds).
+            while True:
+                try:
+                    db.write_results(conn, results)
+                    break
+                except psycopg.Error as exc:
+                    log.error("database write failed (%s); retrying in 3s", str(exc).splitlines()[0])
+                    time.sleep(3)
+                    try:
+                        conn.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    conn = db.connect()
             for res in results:
                 if res["decision"] != "APPROVE":
                     stats["alerts"] += 1
