@@ -14,13 +14,31 @@
 /* ---- bank card ---- */
 .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 24px; }
 .card-pick { border: 0; padding: 0; background: none; cursor: pointer; text-align: left; border-radius: 22px; font: inherit; }
-.card-pick:hover .bank-card, .card-pick:focus-visible .bank-card { transform: translateY(-3px); }
+/* reflective card: 3D tilt + cursor glare + sweeping shine + metal grain (solid colours, blurred: no gradients) */
 .card-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.card-3d { perspective: 900px; }
 .bank-card {
+  --rx: 0deg; --ry: 0deg; --gx: 78%; --gy: 18%; --glare: .38;
   position: relative; aspect-ratio: 1.586; border-radius: 22px; padding: 22px 24px; color: #24283a;
   display: flex; flex-direction: column; justify-content: space-between; box-shadow: var(--shadow);
-  transition: transform .15s; overflow: hidden; min-width: 0;
+  overflow: hidden; min-width: 0; isolation: isolate;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)); transform-style: preserve-3d;
+  transition: transform .5s cubic-bezier(.2,.8,.2,1), box-shadow .3s;
 }
+.bank-card.is-tilting { transition: transform .08s linear; }
+.bank-card > * { position: relative; z-index: 2; }
+.bank-card .bc-fx { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; border-radius: inherit; }
+.bank-card .bc-grain { position: absolute; inset: 0; opacity: .22; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9 .04' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.bank-card .bc-glare { position: absolute; width: 62%; aspect-ratio: 1; border-radius: 50%; left: var(--gx); top: var(--gy);
+  transform: translate(-50%, -50%); background: #ffffff; opacity: var(--glare); filter: blur(34px); transition: opacity .3s; }
+.bank-card .bc-shine { position: absolute; top: -40%; left: 0; width: 22%; height: 180%; background: #ffffff; opacity: .28;
+  filter: blur(12px); transform: translateX(-160%) rotate(22deg); animation: bc-sweep 7s ease-in-out infinite; }
+.bank-card .bc-edge { position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255,255,255,.45), inset 0 -10px 22px rgba(0,0,0,.06); }
+.card-3d:nth-child(2n) .bc-shine { animation-delay: -2.3s; } .card-3d:nth-child(3n) .bc-shine { animation-delay: -4.6s; }
+@keyframes bc-sweep { 0%, 55% { transform: translateX(-160%) rotate(22deg); } 85%, 100% { transform: translateX(560%) rotate(22deg); } }
+.bank-card .bc-net { display: flex; align-items: center; gap: 6px; margin-left: auto; font-weight: 800; font-size: 13px; letter-spacing: .14em; }
+.bank-card .bc-net svg { width: 26px; height: 26px; }
 .bank-card.c0 { background: #c9c6f4; } .bank-card.c1 { background: #a9dcc6; } .bank-card.c2 { background: #b7d4f2; }
 .bank-card.c3 { background: #f4c2bc; } .bank-card.c4 { background: #f3d9a2; }
 [data-theme="dark"] .bank-card.c0 { background: #8f8ae0; } [data-theme="dark"] .bank-card.c1 { background: #6fbf9e; }
@@ -40,8 +58,9 @@
 .bank-card .bc-label { font-size: 9px; letter-spacing: .14em; opacity: .7; font-weight: 700; }
 .bank-card .bc-holder { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
 .bank-card .bc-home { font-size: 12px; font-weight: 600; text-align: right; }
-.bank-card .bc-circles { position: absolute; right: -40px; top: -40px; width: 170px; height: 170px; border-radius: 50%; background: rgba(255,255,255,.18); }
-.bank-card .bc-circles.two { right: 40px; top: 70px; width: 120px; height: 120px; background: rgba(255,255,255,.12); }
+.bank-card .bc-circles { position: absolute; right: -40px; top: -40px; width: 170px; height: 170px; border-radius: 50%; background: rgba(255,255,255,.16); }
+.bank-card .bc-circles.two { right: 40px; top: 70px; width: 120px; height: 120px; background: rgba(255,255,255,.10); }
+@media (prefers-reduced-motion: reduce) { .bank-card .bc-shine { animation: none; opacity: 0; } .bank-card { transform: none !important; } }
 
 /* ---- card home ---- */
 .pay-layout { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 26px; align-items: start; }

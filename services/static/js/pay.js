@@ -48,10 +48,19 @@
     setTimeout(() => t.remove(), 4000);
   }
 
-  const cardHtml = (c) => `<div class="bank-card c${c.color}">
-      <span class="bc-circles"></span><span class="bc-circles two"></span>
+  // Original, fictional card-network marks (Nova, Kite, Lumen, Axis)
+  const NETWORK = {
+    nova: ["NOVA", '<path d="M12 1.5 14.3 9.7 22.5 12 14.3 14.3 12 22.5 9.7 14.3 1.5 12 9.7 9.7z" fill="currentColor"/>'],
+    kite: ["KITE", '<path d="M12 2 20 12 12 22 4 12z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 2v20M4 12h16" stroke="currentColor" stroke-width="1.6"/>'],
+    lumen: ["LUMEN", '<path d="M4 17a8 8 0 0 1 16 0z" fill="currentColor"/><path d="M12 3v3M4.2 6.6l2.1 2.1M19.8 6.6l-2.1 2.1M1.5 13h2.6M19.9 13h2.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
+    axis: ["AXIS", '<rect x="3" y="13" width="4.5" height="8" rx="1.5" fill="currentColor"/><rect x="9.75" y="8" width="4.5" height="13" rx="1.5" fill="currentColor"/><rect x="16.5" y="3" width="4.5" height="18" rx="1.5" fill="currentColor"/>'],
+  };
+  const netHtml = (n) => { const [label, path] = NETWORK[n] || NETWORK.nova; return `<span class="bc-net" aria-label="${label} card network"><svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>${label}</span>`; };
+
+  const cardHtml = (c) => `<div class="bank-card c${c.color}" data-tilt>
+      <span class="bc-fx"><span class="bc-circles"></span><span class="bc-circles two"></span><span class="bc-grain"></span><span class="bc-glare"></span><span class="bc-shine"></span><span class="bc-edge"></span></span>
       <div class="bc-top"><span class="bc-bank">SECURELYTICS</span><span class="bc-type">DEBIT</span></div>
-      <div class="bc-row"><span class="bc-chip"></span><span class="bc-wave"><svg viewBox="0 0 24 24"><path d="M8 7a7 7 0 0 1 0 10"/><path d="M12 4a11 11 0 0 1 0 16"/><path d="M4 10a3 3 0 0 1 0 4"/></svg></span></div>
+      <div class="bc-row"><span class="bc-chip"></span><span class="bc-wave"><svg viewBox="0 0 24 24"><path d="M8 7a7 7 0 0 1 0 10"/><path d="M12 4a11 11 0 0 1 0 16"/><path d="M4 10a3 3 0 0 1 0 4"/></svg></span>${netHtml(c.network)}</div>
       <div class="bc-number">•••• •••• •••• ${esc(c.last4)}</div>
       <div class="bc-bottom"><div><div class="bc-label">CARDHOLDER</div><div class="bc-holder">${esc(c.holder)}</div></div>
         <div><div class="bc-label" style="text-align:right">HOME</div><div class="bc-home">${esc(c.home)}</div></div></div>
@@ -75,7 +84,7 @@
     if (!r.ok) { v.innerHTML = errorCard(r.message); return; }
     v.innerHTML = `<div><div class="hero-title">Choose your card</div>
         <div class="muted">Pick a cardholder to pay as. In this demo the card is your login.</div></div>
-      <div class="cards-grid">${S.cards.map((c) => `<button class="card-pick" data-id="${c.id}" aria-label="Use card ending ${c.last4}, ${esc(c.holder)}">${cardHtml(c)}</button>`).join("")}</div>`;
+      <div class="cards-grid">${S.cards.map((c) => `<button class="card-pick card-3d" data-id="${c.id}" aria-label="Use ${(NETWORK[c.network] || NETWORK.nova)[0]} card ending ${c.last4}, ${esc(c.holder)}">${cardHtml(c)}</button>`).join("")}</div>`;
     $$(".card-pick").forEach((b) => (b.onclick = () => { store.card = b.dataset.id; showCard(); }));
     v.focus({ preventScroll: true });
   }
@@ -101,9 +110,9 @@
     const c = S.card;
     v.innerHTML = `<div class="pay-layout">
       <div class="side-col">
-        ${cardHtml(c)}
+        <div class="card-3d">${cardHtml(c)}</div>
         <div class="card"><div class="card-head" style="margin-bottom:10px"><h2>Card details</h2><span class="chip approve">active</span></div>
-          <div class="info-list"><div><span>Cardholder</span><span>${esc(c.holder)}</span></div><div><span>Card</span><span class="mono">•••• ${esc(c.last4)}</span></div>
+          <div class="info-list"><div><span>Cardholder</span><span>${esc(c.holder)}</span></div><div><span>Card</span><span class="mono">${(NETWORK[c.network] || NETWORK.nova)[0]} •••• ${esc(c.last4)}</span></div>
           <div><span>Home</span><span>${esc(c.home)}</span></div><div><span>Last transaction</span><span id="last-act">${fmtWhen(c.last_activity)}</span></div></div></div>
         <div class="card"><div class="card-head" style="margin-bottom:10px"><h2>Recent payments</h2><span class="muted small">made in this app</span></div><div class="history" id="history"></div></div>
       </div>
@@ -179,7 +188,7 @@
       <div class="r-amount">${money(r.amount)}</div>
       <div class="info-list"><div><span>Merchant</span><span>${esc(r.merchant)}</span></div><div><span>Category</span><span>${esc(r.category_label)}</span></div>
         <div><span>Location</span><span>${esc(r.location)}</span></div><div><span>Date &amp; time</span><span>${fmtWhen(r.when)}</span></div>
-        <div><span>Card</span><span class="mono">•••• ${esc(r.card_last4)}</span></div><div><span>Transaction ID</span><span class="mono small">${esc(r.txn_id)}</span></div>
+        <div><span>Card</span><span class="mono">${esc((r.network || "").toUpperCase())} •••• ${esc(r.card_last4)}</span></div><div><span>Transaction ID</span><span class="mono small">${esc(r.txn_id)}</span></div>
         <div><span>Status</span><span style="color:var(--mint-ink)">Completed</span></div></div>
       <div class="row-end" style="justify-content:center"><button class="btn primary" id="receipt-done">Done</button></div>
       <div class="demo-link">Demo: the bank's fraud system scored this payment in the background.
@@ -189,6 +198,28 @@
     $("#receipt-done").onclick = closeReceipt;
   }
   function closeReceipt() { $("#receipt-modal").classList.add("hidden"); }
+
+  /* reflective tilt: card follows the pointer, glare follows the cursor */
+  const MAX_TILT = 11;
+  document.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return;
+    const card = e.target.closest && e.target.closest("[data-tilt]");
+    $$("[data-tilt].is-tilting").forEach((c) => { if (c !== card) resetTilt(c); });
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    card.classList.add("is-tilting");
+    card.style.setProperty("--ry", ((x - 0.5) * 2 * MAX_TILT).toFixed(2) + "deg");
+    card.style.setProperty("--rx", ((0.5 - y) * 2 * MAX_TILT).toFixed(2) + "deg");
+    card.style.setProperty("--gx", (x * 100).toFixed(1) + "%");
+    card.style.setProperty("--gy", (y * 100).toFixed(1) + "%");
+    card.style.setProperty("--glare", (0.3 + 0.35 * Math.hypot(x - 0.5, y - 0.5)).toFixed(2));
+  });
+  function resetTilt(c) {
+    c.classList.remove("is-tilting");
+    ["--rx", "--ry", "--gx", "--gy", "--glare"].forEach((v) => c.style.removeProperty(v));
+  }
+  document.addEventListener("pointerleave", () => $$("[data-tilt]").forEach(resetTilt));
 
   function applyTheme(t) {
     document.documentElement.setAttribute("data-theme", t);

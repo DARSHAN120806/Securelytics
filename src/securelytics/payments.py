@@ -42,6 +42,10 @@ CITIES = {
     "Anchorage, AK": (61.2181, -149.9003), "Honolulu, HI": (21.3069, -157.8583),
 }
 
+# Original (fictional) card networks for the demo; each card gets one, fixed by its id.
+NETWORKS = ["nova", "kite", "lumen", "axis"]
+NETWORK_LABELS = {"nova": "Nova", "kite": "Kite", "lumen": "Lumen", "axis": "Axis"}
+
 PROFILE_COLS = ["cc_num", "first", "last", "gender", "street", "city", "state", "zip", "lat", "long",
                 "city_pop", "job", "dob", "is_fraud"]
 
@@ -58,6 +62,8 @@ def load_cards() -> dict[str, dict]:
     counts = df["cc_num"].value_counts()
     profiles = df.drop_duplicates("cc_num").set_index("cc_num")
     cards, states = {}, set()
+    networks = (NETWORKS * (N_CARDS // len(NETWORKS) + 1))[:N_CARDS]
+    random.Random(7).shuffle(networks)  # random but fixed: every network appears, same card always same network
     for cc in counts.index:
         if cc in fraud_cards:
             continue
@@ -71,6 +77,7 @@ def load_cards() -> dict[str, dict]:
             "gender": p["gender"], "street": p["street"], "city": p["city"], "state": p["state"], "zip": p["zip"],
             "lat": float(p["lat"]), "long": float(p["long"]), "city_pop": int(p["city_pop"]),
             "job": p["job"], "dob": str(p["dob"])[:10], "color": len(cards) % 5,
+            "network": networks[len(cards)],
         }
         if len(cards) >= N_CARDS:
             break
@@ -80,7 +87,7 @@ def load_cards() -> dict[str, dict]:
 def public_card(c: dict, last_ts: int | None) -> dict:
     """What the browser may see: no full card number."""
     return {"id": c["id"], "last4": c["last4"], "holder": c["holder"], "home": f"{c['city']}, {c['state']}",
-            "lat": c["lat"], "long": c["long"], "color": c["color"],
+            "lat": c["lat"], "long": c["long"], "color": c["color"], "network": c.get("network", "nova"),
             "last_activity": dt.datetime.fromtimestamp(last_ts, dt.timezone.utc).strftime("%Y-%m-%dT%H:%M") if last_ts else None}
 
 
@@ -142,5 +149,6 @@ def build_event(card: dict, req: dict, last_ts: int | None, rng: random.Random |
     }
     receipt = {"txn_id": txn_id, "status": "COMPLETED", "amount": amount, "merchant": merchant,
                "category": category, "category_label": CATEGORY_LABELS[category], "location": place,
-               "when": when.strftime("%Y-%m-%dT%H:%M"), "card_last4": card["last4"], "holder": card["holder"]}
+               "when": when.strftime("%Y-%m-%dT%H:%M"), "card_last4": card["last4"], "holder": card["holder"],
+               "network": NETWORK_LABELS.get(card.get("network", "nova"), "Nova")}
     return event, receipt
